@@ -52,20 +52,15 @@ def _render_group(
     group_number: int,
     group_type: str,
     transactions: list[Transaction],
-) -> tuple[list[RenderableRecord], int, int]:
+) -> tuple[list[RenderableRecord], int, int, int]:
     """
-    Render a group:
-
-      GRH
-      (transaction body lines...)
-      GRT
-
     Returns:
-      - group_records: physical lines for this group (includes GRH and GRT)
+      - group_records: [GRH] + transaction record lines + [GRT]
       - txcount: group transaction count
-      - group_line_count: number of physical lines in this group
+      - reccount: group record line count (excluding GRH/GRT)
+      - group_line_count: total physical lines in this group including GRH/GRT
     """
-    txcount, body_reccount = sum_counts(transactions)
+    txcount, reccount = sum_counts(transactions)
 
     body_lines: list[RenderableRecord] = []
     for t in transactions:
@@ -74,12 +69,11 @@ def _render_group(
     group_records: list[RenderableRecord] = [
         GRHRecord(group=group_number, type_=group_type),
         *body_lines,
-        GRTRecord(group=group_number, txcount=txcount, reccount=body_reccount),
+        GRTRecord(group=group_number, txcount=txcount, reccount=reccount),
     ]
 
-    # Robust: physical lines in the group is literally what we output.
-    group_line_count = len(group_records)
-    return group_records, txcount, group_line_count
+    group_line_count = 2 + reccount  # GRH + body + GRT
+    return group_records, txcount, reccount, group_line_count
 
 
 def render_minimal_wrk_file(
@@ -94,9 +88,9 @@ def render_minimal_wrk_file(
       - WRK group from payload["works"]
       - optional SPU group from payload["spu"]
 
-    WRK group supports:
-      - alternate_titles -> ALT lines (non-tx lines inside transaction)
-      - comment -> COM line (non-tx line inside transaction)
+    The WRK group supports:
+      - alternate_titles -> ALT lines (non-tx)
+      - comment -> COM line (non-tx)
     """
     if now is None:
         now = datetime.now(UTC)
@@ -105,49 +99,43 @@ def render_minimal_wrk_file(
         HDRRecord(sender=sender, receiver=receiver, version=cwr_version, created=now),
     ]
 
-    groups_count = 0
-    total_tx = 0
-    total_group_lines = 0
-    next_group_number = 1
-
     # ---------------------------
-    # Group: WRK
+    # Group 1: WRK
     # ---------------------------
     works = _get_objects(payload, "works")
-    if works:
-        wrk_transactions: list[Transaction] = []
-        for w in works:
-            title = str(w.get("title", "")).strip()
-            swk = str(w.get("submitter_work_number", "")).strip()
-            lang = str(w.get("language_code", "EN")).strip() or "EN"
 
-            tx_records: list[CountableRecord] = [
-                NWRRecord(title=title, submitter_work_number=swk, language_code=lang),
-            ]
+    wrk_transactions: list[Transaction] = []
+    for w in works:
+        title = str(w.get("title", "")).strip()
+        swk = str(w.get("submitter_work_number", "")).strip()
+        lang = str(w.get("language_code", "EN")).strip() or "EN"
 
-            for alt in _get_str_list(w, "alternate_titles"):
-                tx_records.append(ALTRecord(title=alt))
+        tx_records: list[CountableRecord] = [
+            NWRRecord(title=title, submitter_work_number=swk, language_code=lang)
+        ]
 
-            comment = w.get("comment")
-            if isinstance(comment, str) and comment.strip():
-                tx_records.append(COMRecord(comment=comment))
+        for alt in _get_str_list(w, "alternate_titles"):
+            tx_records.append(ALTRecord(title=alt))
 
-            wrk_transactions.append(Transaction(records=tx_records))
+        comment = w.get("comment")
+        if isinstance(comment, str) and comment.strip():
+            tx_records.append(COMRecord(comment=comment))
 
-        wrk_group, wrk_tx, wrk_group_lines = _render_group(
-            group_number=next_group_number,
-            group_type="WRK",
-            transactions=wrk_transactions,
-        )
-        records.extend(wrk_group)
+        wrk_transactions.append(Transaction(records=tx_records))
 
-        groups_count += 1
-        total_tx += wrk_tx
-        total_group_lines += wrk_group_lines
-        next_group_number += 1
+    wrk_group, wrk_tx, _wrk_rec, wrk_lines = _render_group(
+        group_number=1,
+        group_type="WRK",
+        transactions=wrk_transactions,
+    )
+    records.extend(wrk_group)
+
+    groups_count = 1
+    total_tx = wrk_tx
+    total_group_lines = wrk_lines
 
     # ---------------------------
-    # Group: SPU (optional)
+    # Group 2: SPU (optional)
     # ---------------------------
     spu_items = _get_objects(payload, "spu")
     if spu_items:
@@ -156,19 +144,19 @@ def render_minimal_wrk_file(
             name = str(item.get("publisher_name", "")).strip()
             spu_transactions.append(Transaction(records=[SPURecord(publisher_name=name)]))
 
-        spu_group, spu_tx, spu_group_lines = _render_group(
-            group_number=next_group_number,
+        spu_group, spu_tx, _spu_rec, spu_lines = _render_group(
+            group_number=2,
             group_type="SPU",
             transactions=spu_transactions,
         )
         records.extend(spu_group)
 
-        groups_count += 1
+        groups_count = 2
         total_tx += spu_tx
-        total_group_lines += spu_group_lines
-        next_group_number += 1
+        total_group_lines += spu_lines
 
-    # File total physical lines = HDR(1) + groups + TRL(1)
+    # File total physical lines:
+    # HDR (1) + all group physical lines + TRL (1)
     rectotal = 2 + total_group_lines
 
     records.append(TRLRecord(groups=groups_count, txtotal=total_tx, rectotal=rectotal))
@@ -182,7 +170,10 @@ def render_hello_control_file(
     cwr_version: str = "2.1",
     now: datetime | None = None,
 ) -> str:
-    """Convenience writer used by tests (includes ALT + COM)."""
+    """
+    "Hello" convenience writer used by tests.
+    Includes ALT + COM so tests pass.
+    """
     payload: dict[str, Any] = {
         "works": [
             {

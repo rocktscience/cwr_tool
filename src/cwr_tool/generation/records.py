@@ -12,6 +12,13 @@ class RenderableRecord(Protocol):
 
 
 class CountableRecord(RenderableRecord, Protocol):
+    """
+    A record that can contribute to group totals.
+
+    Returns:
+      (tx_increment, rec_increment)
+    """
+
     def counts(self) -> tuple[int, int]: ...
 
 
