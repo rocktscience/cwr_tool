@@ -3,16 +3,15 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import Any
 
+from cwr_tool.generation.alt_record import ALTRecord
+from cwr_tool.generation.com_record import COMRecord
+from cwr_tool.generation.control_records import HDRRecord, TRLRecord
 from cwr_tool.generation.group_builder import (
     _get_objects,
     build_groups,
     render_group,
     total_physical_line_count,
 )
-
-from cwr_tool.generation.alt_record import ALTRecord
-from cwr_tool.generation.com_record import COMRecord
-from cwr_tool.generation.control_records import HDRRecord, TRLRecord
 from cwr_tool.generation.nwr_record import NWRRecord
 from cwr_tool.generation.records import RenderableRecord, join_records
 from cwr_tool.generation.spu_record import SPURecord
