@@ -11,6 +11,10 @@ class RenderableRecord(Protocol):
     def render(self) -> str: ...
 
 
+class CountableRecord(RenderableRecord, Protocol):
+    def counts(self) -> tuple[int, int]: ...
+
+
 @dataclass(frozen=True, slots=True)
 class RecordLine:
     record_type: str

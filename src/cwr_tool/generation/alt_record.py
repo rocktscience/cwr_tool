@@ -11,16 +11,15 @@ def _req(value: str, field: str) -> str:
 
 
 @dataclass(frozen=True, slots=True)
-class NWRRecord:
+class ALTRecord:
+    """Alternate title record within a WRK transaction."""
+
     title: str
-    submitter_work_number: str
-    language_code: str = "EN"
 
     def counts(self) -> tuple[int, int]:
-        return 1, 1
+        # Does not start a transaction; counts as one record line
+        return 0, 1
 
     def render(self) -> str:
-        title = _req(self.title, "title")
-        swk = _req(self.submitter_work_number, "submitter_work_number")
-        lang = (self.language_code or "EN").strip().upper()
-        return f"NWR TITLE={title} SWK={swk} LANG={lang}"
+        t = _req(self.title, "title")
+        return f"ALT TITLE={t}"

@@ -15,3 +15,5 @@ build/
 .ruff_cache/
 *.pyc
 .DS_Store
+.coverage
+htmlcov/

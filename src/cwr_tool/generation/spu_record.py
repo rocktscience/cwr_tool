@@ -11,16 +11,14 @@ def _req(value: str, field: str) -> str:
 
 
 @dataclass(frozen=True, slots=True)
-class NWRRecord:
-    title: str
-    submitter_work_number: str
-    language_code: str = "EN"
+class SPURecord:
+    """Minimal SPU transaction record (placeholder)."""
+
+    publisher_name: str
 
     def counts(self) -> tuple[int, int]:
         return 1, 1
 
     def render(self) -> str:
-        title = _req(self.title, "title")
-        swk = _req(self.submitter_work_number, "submitter_work_number")
-        lang = (self.language_code or "EN").strip().upper()
-        return f"NWR TITLE={title} SWK={swk} LANG={lang}"
+        name = _req(self.publisher_name, "publisher_name")
+        return f"SPU NAME={name}"

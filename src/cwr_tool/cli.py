@@ -62,7 +62,7 @@ def generate(
     ] = "000",
     file_seq: Annotated[int, typer.Option("--file-seq", help="File sequence number (1-9999)")] = 1,
 ) -> None:
-    """Generate a minimal 'hello CWR' file via the pipeline."""
+    """Generate a minimal WRK-group CWR file via the pipeline."""
     if not (1 <= file_seq <= 9999):
         raise typer.BadParameter("file-seq must be between 1 and 9999")
 
@@ -111,18 +111,19 @@ def hello(
     if not report.ok:
         raise typer.Exit(code=2)
 
-    if out:
-        report2, cwr_text, suggested_name = generate_cwr_file(
-            payload=sample,
-            cwr_version="2.1",
-            sender="SUB",
-            receiver="000",
-            file_sequence=1,
-        )
-        if not report2.ok:
-            raise typer.Exit(code=2)
+    report2, cwr_text, suggested_name = generate_cwr_file(
+        payload=sample,
+        cwr_version="2.1",
+        sender="SUB",
+        receiver="000",
+        file_sequence=1,
+    )
+    if not report2.ok:
+        raise typer.Exit(code=2)
 
-        out.parent.mkdir(parents=True, exist_ok=True)
-        out.write_text(cwr_text, encoding="ascii", errors="strict")
-        typer.echo(f"Wrote: {out}")
-        typer.echo(f"Suggested filename: {suggested_name}")
+    output_path = out or (Path.cwd() / suggested_name)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(cwr_text, encoding="ascii", errors="strict")
+
+    typer.echo(f"Wrote: {output_path}")
+    typer.echo(f"Suggested filename: {suggested_name}")

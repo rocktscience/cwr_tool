@@ -22,7 +22,16 @@ def test_cli_validate_smoke(tmp_path: Path) -> None:
 
 
 def test_cli_generate_smoke(tmp_path: Path) -> None:
-    payload = {"works": [{"title": "HELLO WORLD", "submitter_work_number": "0000000001"}]}
+    payload = {
+        "works": [
+            {
+                "title": "HELLO WORLD",
+                "submitter_work_number": "0000000001",
+                "alternate_titles": ["HELLO WORLD (ALT)"],
+                "comment": "NON_TX_LINE",
+            }
+        ]
+    }
     p = tmp_path / "in.json"
     p.write_text(json.dumps(payload), encoding="utf-8")
 
@@ -52,5 +61,7 @@ def test_cli_generate_smoke(tmp_path: Path) -> None:
     assert lines[0].startswith("HDR")
     assert lines[1].startswith("GRH")
     assert lines[2].startswith("NWR")
-    assert lines[3].startswith("GRT")
-    assert lines[4].startswith("TRL")
+    assert lines[3].startswith("ALT")
+    assert lines[4].startswith("COM")
+    assert lines[5].startswith("GRT")
+    assert lines[6].startswith("TRL")

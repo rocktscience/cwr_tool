@@ -25,5 +25,7 @@ def test_hello_writer_has_control_records_in_order() -> None:
 
     assert lines[1].startswith("GRH")
     assert lines[2].startswith("NWR")
-    assert lines[3].startswith("GRT")
-    assert lines[4].startswith("TRL")
+    assert lines[3].startswith("ALT")
+    assert lines[4].startswith("COM")
+    assert lines[5].startswith("GRT")
+    assert lines[6].startswith("TRL")
