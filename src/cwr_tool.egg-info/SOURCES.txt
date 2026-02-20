@@ -9,6 +9,7 @@ src/cwr_tool.egg-info/entry_points.txt
 src/cwr_tool.egg-info/requires.txt
 src/cwr_tool.egg-info/top_level.txt
 src/cwr_tool/generation/pipeline.py
+src/cwr_tool/generation/records.py
 src/cwr_tool/generation/writer.py
 src/cwr_tool/reporting/models.py
 src/cwr_tool/validation/engine.py

@@ -1,31 +1,104 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import UTC, datetime
+from typing import Any
+
+from cwr_tool.generation.control_records import GRHRecord, GRTRecord, HDRRecord, TRLRecord
+from cwr_tool.generation.nwr_record import NWRRecord
+from cwr_tool.generation.records import RenderableRecord, join_records
 
 
-def _prefix(record_type: str, tx_seq: int, rec_seq: int) -> str:
-    # 3-char record + 8-digit tx seq + 8-digit record seq
-    return f"{record_type}{tx_seq:08d}{rec_seq:08d}"
+def _get_works(payload: dict[str, Any]) -> list[dict[str, Any]]:
+    works = payload.get("works")
+    if works is None:
+        return []
+    if not isinstance(works, list):
+        raise ValueError("'works' must be a list")
+    out: list[dict[str, Any]] = []
+    for item in works:
+        if isinstance(item, dict):
+            out.append(item)
+        else:
+            raise ValueError("Each item in 'works' must be an object")
+    return out
 
 
-def render_hello_control_file(sender: str, receiver: str, cwr_version: str) -> str:
+def render_minimal_wrk_file(
+    payload: dict[str, Any],
+    sender: str,
+    receiver: str,
+    cwr_version: str = "2.1",
+    now: datetime | None = None,
+) -> str:
     """
-    Minimal "hello CWR" output:
-    HDR, GRH, GRT, TRL.
+    Render a minimal WRK group CWR file based on the input payload.
 
-    This is a pipeline proving ground. Next steps will implement per-version
-    fixed-width layouts from CISAC specs.
+    Expected payload shape (minimal):
+    {
+      "works": [
+        {"title": "...", "submitter_work_number": "...", "language_code": "EN"},
+        ...
+      ]
+    }
     """
-    now = datetime.now(datetime.UTC)
-    created_date = now.strftime("%Y%m%d")
-    created_time = now.strftime("%H%M%S")
+    if now is None:
+        now = datetime.now(UTC)
 
-    lines: list[str] = []
-    lines.append(
-        _prefix("HDR", 0, 0)
-        + f"SENDER={sender} RECEIVER={receiver} VER={cwr_version} DT={created_date}{created_time}"
+    works = _get_works(payload)
+
+    nwr_records: list[RenderableRecord] = []
+    for w in works:
+        title = str(w.get("title", "")).strip()
+        swk = str(w.get("submitter_work_number", "")).strip()
+        lang = str(w.get("language_code", "EN")).strip() or "EN"
+
+        # NWRRecord will raise ValueError if required fields are missing/blank
+        nwr_records.append(
+            NWRRecord(
+                title=title,
+                submitter_work_number=swk,
+                language_code=lang,
+            )
+        )
+
+    txcount = len(nwr_records)
+    reccount = len(nwr_records)
+    rectotal = 4 + len(nwr_records)  # HDR + GRH + GRT + TRL + NWRs
+
+    records: list[RenderableRecord] = [
+        HDRRecord(sender=sender, receiver=receiver, version=cwr_version, created=now),
+        GRHRecord(group=1, type_="WRK"),
+        *nwr_records,
+        GRTRecord(group=1, txcount=txcount, reccount=reccount),
+        TRLRecord(groups=1, txtotal=txcount, rectotal=rectotal),
+    ]
+
+    return join_records(records)
+
+
+def render_hello_control_file(
+    sender: str,
+    receiver: str,
+    cwr_version: str = "2.1",
+    now: datetime | None = None,
+) -> str:
+    """
+    Backwards-compatible "hello" writer used by earlier tests/demos.
+    Now implemented via the payload-driven renderer.
+    """
+    payload: dict[str, Any] = {
+        "works": [
+            {
+                "title": "HELLO WORLD",
+                "submitter_work_number": "0000000001",
+                "language_code": "EN",
+            }
+        ]
+    }
+    return render_minimal_wrk_file(
+        payload=payload,
+        sender=sender,
+        receiver=receiver,
+        cwr_version=cwr_version,
+        now=now,
     )
-    lines.append(_prefix("GRH", 0, 0) + "GROUP=00001 TYPE=WRK")
-    lines.append(_prefix("GRT", 0, 0) + "GROUP=00001 TXCOUNT=00000000 RECCOUNT=00000000")
-    lines.append(_prefix("TRL", 0, 0) + "GROUPS=00001 TXTOTAL=00000000 RECTOTAL=00000004")
-    return "\r\n".join(lines) + "\r\n"

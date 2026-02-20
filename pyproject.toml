@@ -4,27 +4,73 @@ version = "0.1.0"
 description = "CISAC CWR generation + validation tool"
 readme = "README.md"
 requires-python = ">=3.12"
+
 dependencies = [
   "typer>=0.12.0",
   "pydantic>=2.7.0",
 ]
 
+[project.optional-dependencies]
+dev = [
+  "ruff",
+  "mypy",
+  "pytest",
+]
+
 [project.scripts]
 cwr-tool = "cwr_tool.cli:app"
 
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+# ----------------------------
+# Pytest
+# ----------------------------
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"
 
+# ----------------------------
+# Mypy (strict + Pydantic v2)
+# ----------------------------
 [tool.mypy]
 python_version = "3.12"
+plugins = ["pydantic.mypy"]
+
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true
 no_implicit_optional = true
 strict_equality = true
+
 mypy_path = "src"
 
-[build-system]
-requires = ["setuptools>=68"]
-build-backend = "setuptools.build_meta"
+# Let Typer/Click be treated as typed but ignore missing internals
+ignore_missing_imports = true
+
+# Targeted overrides for CLI framework
+[[tool.mypy.overrides]]
+module = [
+  "typer",
+  "typer.*",
+  "click",
+  "click.*"
+]
+ignore_missing_imports = true
+
+# ----------------------------
+# Ruff
+# ----------------------------
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+src = ["src", "tests"]
+extend-exclude = [".venv", "build", "dist"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP"]
