@@ -7,7 +7,7 @@ from cwr_tool.generation.alt_record import ALTRecord
 from cwr_tool.generation.com_record import COMRecord
 from cwr_tool.generation.control_records import GRHRecord, GRTRecord, HDRRecord, TRLRecord
 from cwr_tool.generation.nwr_record import NWRRecord
-from cwr_tool.generation.records import RenderableRecord, CountableRecord, join_records
+from cwr_tool.generation.records import CountableRecord, RenderableRecord, join_records
 from cwr_tool.generation.spu_record import SPURecord
 from cwr_tool.generation.transaction import Transaction, sum_counts
 
