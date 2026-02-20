@@ -1,19 +1,19 @@
-
-# virtualenv
-.venv/
-venv/
-.env/
-
 # python
 __pycache__/
 *.py[cod]
-*.egg-info/
-dist/
-build/
+*.pyc
+
+# macOS
+.DS_Store
+
+# tooling caches
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
-*.pyc
-.DS_Store
 .coverage
 htmlcov/
+
+# builds
+dist/
+build/
+*.egg-info/
