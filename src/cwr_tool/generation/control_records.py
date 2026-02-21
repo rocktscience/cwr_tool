@@ -3,6 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime
 
+from cwr_tool.spec.registry import SpecRegistry
+
 
 def _fmt_dt(dt: datetime) -> str:
     return dt.strftime("%Y%m%d%H%M%S")
@@ -21,6 +23,13 @@ class HDRRecord:
         ver = self.version.strip()
         dt = _fmt_dt(self.created)
         return f"HDR SENDER={sender} RECEIVER={receiver} VER={ver} DT={dt}"
+
+    def render_fixedwidth(self, registry: SpecRegistry) -> str:
+        sender = self.sender.strip().upper()
+        receiver = self.receiver.strip().upper()
+        ver = self.version.strip()
+        dt = _fmt_dt(self.created)
+        return registry.render_hdr_fixedwidth(sender=sender, receiver=receiver, version=ver, dt=dt)
 
 
 @dataclass(frozen=True, slots=True)
