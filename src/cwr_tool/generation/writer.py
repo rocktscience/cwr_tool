@@ -13,7 +13,7 @@ from cwr_tool.generation.group_builder import (
     total_physical_line_count,
 )
 from cwr_tool.generation.nwr_record import NWRRecord
-from cwr_tool.generation.records import RenderableRecord, join_records
+from cwr_tool.generation.records import CountableRecord, RenderableRecord, join_records
 from cwr_tool.generation.spu_record import SPURecord
 from cwr_tool.generation.transaction import Transaction
 
@@ -43,7 +43,7 @@ def _build_wrk_transactions(payload: dict[str, Any]) -> list[Transaction]:
         swk = str(w.get("submitter_work_number", "")).strip()
         lang = str(w.get("language_code", "EN")).strip() or "EN"
 
-        tx_records: list[Any] = [
+        tx_records: list[CountableRecord] = [
             NWRRecord(title=title, submitter_work_number=swk, language_code=lang),
         ]
 

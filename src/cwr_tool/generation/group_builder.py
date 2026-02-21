@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from typing import Any
 
@@ -28,75 +28,97 @@ def _get_objects(payload: dict[str, Any], key: str) -> list[dict[str, Any]]:
     return out
 
 
+BuildTransactions = Callable[[dict[str, Any]], list[Transaction]]
+
+
 @dataclass(frozen=True, slots=True)
 class GroupSpec:
-    """A single CWR group spec (e.g., WRK, SPU) with its transactions."""
+    """
+    Declarative group spec.
+
+    - group_type: e.g. WRK, SPU
+    - build_transactions(payload) returns transactions for that group.
+      If empty, the group is omitted and group numbers stay compact.
+    """
+
+    group_type: str
+    build_transactions: BuildTransactions
+
+
+@dataclass(frozen=True, slots=True)
+class BuiltGroup:
+    """A group that exists in the final file (has transactions)."""
 
     group_number: int
     group_type: str
     transactions: list[Transaction]
 
 
-@dataclass(frozen=True, slots=True)
-class GroupResult:
+def build_groups(payload: dict[str, Any], specs: Sequence[GroupSpec]) -> list[BuiltGroup]:
     """
-    Rendered group records plus derived counts.
-
-    - records include GRH + body record lines + GRT
-    - txcount/reccount exclude GRH/GRT (CWR convention for group counts)
+    Build groups in the order of specs, assigning sequential group numbers
+    only to groups that actually have transactions.
     """
+    built: list[BuiltGroup] = []
+    next_group_num = 1
 
-    records: list[RenderableRecord]
-    txcount: int
-    reccount: int
-    line_count: int  # physical lines in this group incl GRH/GRT
+    for spec in specs:
+        txs = spec.build_transactions(payload)
+        if not txs:
+            continue
+
+        built.append(
+            BuiltGroup(
+                group_number=next_group_num,
+                group_type=spec.group_type,
+                transactions=txs,
+            )
+        )
+        next_group_num += 1
+
+    return built
 
 
-def render_group(*, spec: GroupSpec) -> GroupResult:
+def render_group(
+    *,
+    group_number: int,
+    group_type: str,
+    transactions: list[Transaction],
+) -> tuple[list[RenderableRecord], int, int]:
     """
-    Build: GRH + (transaction record lines) + GRT.
+    Render a group as:
+      GRH
+      <all transaction record lines>
+      GRT
 
-    Returns counts where:
-      txcount = number of transactions
-      reccount = number of record lines inside transactions (excludes GRH/GRT)
-      line_count = physical lines in group including GRH/GRT
+    Returns:
+      (records, txcount, reccount)
+
+    Note:
+      - txcount/reccount are group totals excluding GRH/GRT (CWR convention)
+      - reccount is based on Transaction.counts() (record-driven)
     """
-    txcount, reccount = sum_counts(spec.transactions)
+    txcount, reccount = sum_counts(transactions)
 
     body_records: list[RenderableRecord] = []
-    for t in spec.transactions:
-        # Transaction records render as body lines.
+    for t in transactions:
         body_records.extend(t.records)
 
     records: list[RenderableRecord] = [
-        GRHRecord(group=spec.group_number, type_=spec.group_type),
+        GRHRecord(group=group_number, type_=group_type),
         *body_records,
-        GRTRecord(group=spec.group_number, txcount=txcount, reccount=reccount),
+        GRTRecord(group=group_number, txcount=txcount, reccount=reccount),
     ]
-
-    line_count = 2 + reccount  # GRH + body + GRT
-    return GroupResult(records=records, txcount=txcount, reccount=reccount, line_count=line_count)
+    return records, txcount, reccount
 
 
-def build_groups(specs: Sequence[GroupSpec]) -> tuple[list[RenderableRecord], list[GroupResult]]:
+def total_physical_line_count(groups: Sequence[BuiltGroup]) -> int:
     """
-    Render multiple groups in order.
-
-    Returns:
-      - all rendered records for groups
-      - per-group results (counts, line_count)
+    Physical lines across groups INCLUDING GRH/GRT per group.
+    For each group: GRH(1) + body(reccount) + GRT(1) = 2 + reccount
     """
-    all_records: list[RenderableRecord] = []
-    results: list[GroupResult] = []
-
-    for spec in specs:
-        res = render_group(spec=spec)
-        results.append(res)
-        all_records.extend(res.records)
-
-    return all_records, results
-
-
-def total_physical_line_count(group_results: Sequence[GroupResult]) -> int:
-    """Total physical lines across all groups (incl GRH/GRT per group)."""
-    return sum(g.line_count for g in group_results)
+    total = 0
+    for g in groups:
+        _tx, rec = sum_counts(g.transactions)
+        total += 2 + rec
+    return total
