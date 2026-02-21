@@ -66,7 +66,7 @@ def generate_cwr_file(
     created: datetime | None = None,
 ) -> tuple[ValidationReport, str, str]:
     """Validate payload, render minimal WRK file, and suggest output filename."""
-    report = validate_minimal(payload)
+    report = validate_minimal(payload, version=cwr_version)
     if not report.ok:
         return report, "", ""
 

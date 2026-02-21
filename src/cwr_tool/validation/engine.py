@@ -1,10 +1,31 @@
 from __future__ import annotations
 
 from cwr_tool.reporting.models import Pointer, Severity, ValidationIssue, ValidationReport
+from cwr_tool.spec.registry import SpecRegistry
 
 
-def validate_minimal(payload: dict) -> ValidationReport:
+def validate_minimal(payload: dict, *, version: str = "2.1") -> ValidationReport:
+    """
+    MVP validation entry point.
+
+    - Loads version spec (fails early if unsupported)
+    - Runs minimal schema checks (works array, required fields)
+    """
     report = ValidationReport(ok=True)
+
+    # Ensure version is supported
+    try:
+        SpecRegistry.get(version)
+    except ValueError as e:
+        report.add(
+            ValidationIssue(
+                code="SPEC.VERSION.UNSUPPORTED",
+                severity=Severity.ERROR,
+                message=str(e),
+                pointer=Pointer(path="/"),
+            )
+        )
+        return report
 
     if (
         "works" not in payload

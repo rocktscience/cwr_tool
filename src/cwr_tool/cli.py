@@ -7,6 +7,7 @@ from typing import Annotated, Any, cast
 import typer
 
 from cwr_tool.generation.pipeline import generate_cwr_file
+from cwr_tool.models.input import MinimalPayload
 from cwr_tool.validation.engine import validate_minimal
 
 app = typer.Typer(no_args_is_help=True)
@@ -32,10 +33,13 @@ def _read_json(path: Path) -> dict[str, Any]:
 @app.command()
 def validate(
     input_path: Annotated[Path, typer.Argument(help="Path to input JSON payload")],
+    version: Annotated[
+        str, typer.Option("--version", "-v", help="CWR version (2.1, 2.2, 3.0, 3.1)")
+    ] = "2.1",
 ) -> None:
     """Validate an input JSON payload and print a structured JSON report."""
     payload = _read_json(input_path)
-    report = validate_minimal(payload)
+    report = validate_minimal(payload, version=version)
     typer.echo(report.model_dump_json(indent=2))
     raise typer.Exit(code=0 if report.ok else 2)
 
@@ -127,3 +131,23 @@ def hello(
 
     typer.echo(f"Wrote: {output_path}")
     typer.echo(f"Suggested filename: {suggested_name}")
+
+
+@app.command()
+def schema(
+    out: Annotated[
+        Path | None,
+        typer.Option("--out", "-o", help="Write JSON schema to this path (or stdout if omitted)."),
+    ] = None,
+) -> None:
+    """Print the JSON schema for the current input payload contract."""
+
+    schema_json = MinimalPayload.model_json_schema()
+
+    if out is None:
+        typer.echo(json.dumps(schema_json, indent=2))
+        raise typer.Exit(code=0)
+
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(json.dumps(schema_json, indent=2), encoding="utf-8")
+    typer.echo(f"Wrote: {out}")
